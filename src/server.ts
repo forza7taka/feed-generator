@@ -9,6 +9,11 @@ import { createDb, Database, migrateToLatest } from './db'
 import { FirehoseSubscription } from './subscription'
 import { AppContext, Config } from './config'
 import wellKnown from './well-known'
+import fs from 'fs';
+
+type Word = {
+  val: string;
+};
 
 export class FeedGenerator {
   public app: express.Application
@@ -32,7 +37,19 @@ export class FeedGenerator {
   static create(cfg: Config) {
     const app = express()
     const db = createDb(cfg.sqliteLocation)
-    const firehose = new FirehoseSubscription(db, cfg.subscriptionEndpoint)
+
+    const path: string = process.env.WORD_FILE_PATH ? process.env.WORD_FILE_PATH : ""
+    if (path === "") {
+      console.log("not exists WORD_FILE_PATH")
+    }
+    const json = fs.readFileSync(path, 'utf8')
+    const words: Word[] = JSON.parse(json)
+    const checkWords: string[] = []
+    for (const index in words) {
+      checkWords.push(words[index].val)
+    }
+
+    const firehose = new FirehoseSubscription(db, cfg.subscriptionEndpoint, checkWords)
 
     const didCache = new MemoryCache()
     const didResolver = new DidResolver(

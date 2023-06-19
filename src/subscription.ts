@@ -3,8 +3,15 @@ import {
   isCommit,
 } from './lexicon/types/com/atproto/sync/subscribeRepos'
 import { FirehoseSubscriptionBase, getOpsByType } from './util/subscription'
-
+import { Database } from './db'
 export class FirehoseSubscription extends FirehoseSubscriptionBase {
+
+
+  constructor(db: Database, service: string, public words: string[]) {
+    super(db, service)
+    this.words = words
+  }
+
   async handleEvent(evt: RepoEvent) {
     if (!isCommit(evt)) return
     const ops = await getOpsByType(evt)
@@ -12,18 +19,24 @@ export class FirehoseSubscription extends FirehoseSubscriptionBase {
     // This logs the text of every post off the firehose.
     // Just for fun :)
     // Delete before actually using
-    for (const post of ops.posts.creates) {
-      console.log(post.record.text)
-    }
+    //for (const post of ops.posts.creates) {
+    //  console.log(post.record.text)
+    //}
+
+
 
     const postsToDelete = ops.posts.deletes.map((del) => del.uri)
     const postsToCreate = ops.posts.creates
       .filter((create) => {
-        // only alf-related posts
-        return create.record.text.toLowerCase().includes('alf')
+        for (const index in this.words) {
+          if (create.record.text.toLowerCase().includes(this.words[index])) {
+            console.log(create.record.text)
+            return true
+          }
+        }
+
       })
       .map((create) => {
-        // map alf-related posts to a db row
         return {
           uri: create.uri,
           cid: create.cid,
