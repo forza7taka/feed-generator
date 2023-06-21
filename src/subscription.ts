@@ -5,6 +5,9 @@ import {
 import { FirehoseSubscriptionBase, getOpsByType } from './util/subscription'
 
 export class FirehoseSubscription extends FirehoseSubscriptionBase {
+
+  hashtagRegExp = /#[^\s#]+/g
+
   async handleEvent(evt: RepoEvent) {
     if (!isCommit(evt)) return
     const ops = await getOpsByType(evt)
@@ -13,23 +16,36 @@ export class FirehoseSubscription extends FirehoseSubscriptionBase {
     // Just for fun :)
     // Delete before actually using
     for (const post of ops.posts.creates) {
-      console.log(post.record.text)
+      //console.log(post)
     }
 
     const postsToDelete = ops.posts.deletes.map((del) => del.uri)
     const postsToCreate = ops.posts.creates
       .filter((create) => {
-        // only alf-related posts
-        return create.record.text.toLowerCase().includes('alf')
+        return this.hashtagRegExp.exec(create.record.text)
       })
       .map((create) => {
-        // map alf-related posts to a db row
+        const match = this.hashtagRegExp.exec(create.record.text)
+        if (!match) {
+          return {
+            uri: create.uri,
+            cid: create.cid,
+            replyParent: create.record?.reply?.parent.uri ?? null,
+            replyRoot: create.record?.reply?.root.uri ?? null,
+            indexedAt: new Date().toISOString(),
+            author: create.author,
+            hashtag: null
+          }
+        }
+        const hashtag = match[0]
         return {
           uri: create.uri,
           cid: create.cid,
           replyParent: create.record?.reply?.parent.uri ?? null,
           replyRoot: create.record?.reply?.root.uri ?? null,
           indexedAt: new Date().toISOString(),
+          author: create.author,
+          hashtag: hashtag
         }
       })
 
